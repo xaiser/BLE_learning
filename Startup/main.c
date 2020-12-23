@@ -69,19 +69,10 @@
 #ifndef USE_DEFAULT_USER_CFG
 
 #include "ble_user_config.h"
-
 // BLE user defined configuration
-#ifdef ICALL_JT
 icall_userCfg_t user0Cfg = BLE_USER_CFG;
-#else  /* ! ICALL_JT */
-bleUserCfg_t user0Cfg = BLE_USER_CFG;
-#endif /* ICALL_JT */
 
 #endif // USE_DEFAULT_USER_CFG
-
-#ifdef USE_FPGA
-#include <inc/hw_prcm.h>
-#endif // USE_FPGA
 
 /*******************************************************************************
  * MACROS
@@ -90,15 +81,6 @@ bleUserCfg_t user0Cfg = BLE_USER_CFG;
 /*******************************************************************************
  * CONSTANTS
  */
-
-#if defined( USE_FPGA )
-  #define RFC_MODE_BLE                 PRCM_RFCMODESEL_CURR_MODE1
-  #define RFC_MODE_ANT                 PRCM_RFCMODESEL_CURR_MODE4
-  #define RFC_MODE_EVERYTHING_BUT_ANT  PRCM_RFCMODESEL_CURR_MODE5
-  #define RFC_MODE_EVERYTHING          PRCM_RFCMODESEL_CURR_MODE6
-  //
-  #define SET_RFC_BLE_MODE(mode) HWREG( PRCM_BASE + PRCM_O_RFCMODESEL ) = (mode)
-#endif // USE_FPGA
 
 /*******************************************************************************
  * TYPEDEFS
@@ -111,24 +93,6 @@ bleUserCfg_t user0Cfg = BLE_USER_CFG;
 /*******************************************************************************
  * GLOBAL VARIABLES
  */
-
-#ifdef CC1350_LAUNCHXL
-#ifdef POWER_SAVING
-// Power Notify Object for wake-up callbacks
-Power_NotifyObj rFSwitchPowerNotifyObj;
-static uint8_t rFSwitchNotifyCb(uint8_t eventType, uint32_t *eventArg,
-                                uint32_t *clientArg);
-#endif //POWER_SAVING
-
-PIN_State  radCtrlState;
-PIN_Config radCtrlCfg[] =
-{
-  Board_DIO1_RFSW   | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW  | PIN_PUSHPULL | PIN_DRVSTR_MAX, /* RF SW Switch defaults to 2.4GHz path*/
-  Board_DIO30_SWPWR | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MAX, /* Power to the RF Switch */
-  PIN_TERMINATE
-};
-PIN_Handle radCtrlHandle;
-#endif //CC1350_LAUNCHXL
 
 /*******************************************************************************
  * EXTERNS
@@ -155,50 +119,15 @@ extern Display_Handle dispHandle;
  */
 int main()
 {
-#if defined( USE_FPGA )
-  HWREG(PRCM_BASE + PRCM_O_PDCTL0) &= ~PRCM_PDCTL0_RFC_ON;
-  HWREG(PRCM_BASE + PRCM_O_PDCTL1) &= ~PRCM_PDCTL1_RFC_ON;
-#endif // USE_FPGA
-
   /* Register Application callback to trap asserts raised in the Stack */
   RegisterAssertCback(AssertHandler);
 
   Board_initGeneral();
 
-#ifdef CC1350_LAUNCHXL
-  // Enable 2.4GHz Radio
-  radCtrlHandle = PIN_open(&radCtrlState, radCtrlCfg);
-
-#ifdef POWER_SAVING
-  Power_registerNotify(&rFSwitchPowerNotifyObj,
-                       PowerCC26XX_ENTERING_STANDBY | PowerCC26XX_AWAKE_STANDBY,
-                       (Power_NotifyFxn) rFSwitchNotifyCb, NULL);
-#endif //POWER_SAVING
-#endif //CC1350_LAUNCHXL
-
-#if defined( USE_FPGA )
-  // set RFC mode to support BLE
-  // Note: This must be done before the RF Core is released from reset!
-  SET_RFC_BLE_MODE(RFC_MODE_BLE);
-#endif // USE_FPGA
-
-#ifdef CACHE_AS_RAM
-  // retain cache during standby
-  Power_setConstraint(PowerCC26XX_SB_VIMS_CACHE_RETAIN);
-  Power_setConstraint(PowerCC26XX_NEED_FLASH_IN_IDLE);
-#else
   // Enable iCache prefetching
   VIMSConfigure(VIMS_BASE, TRUE, TRUE);
   // Enable cache
   VIMSModeSet(VIMS_BASE, VIMS_MODE_ENABLED);
-#endif //CACHE_AS_RAM
-
-#if !defined( POWER_SAVING ) || defined( USE_FPGA )
-  /* Set constraints for Standby, powerdown and idle mode */
-  // PowerCC26XX_SB_DISALLOW may be redundant
-  Power_setConstraint(PowerCC26XX_SB_DISALLOW);
-  Power_setConstraint(PowerCC26XX_IDLE_PD_DISALLOW);
-#endif // POWER_SAVING | USE_FPGA
 
 #ifdef ICALL_JT
   /* Update User Configuration of the stack */

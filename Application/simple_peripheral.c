@@ -449,28 +449,6 @@ static void SimplePeripheral_init(void)
   // so that the application can send and receive messages.
   ICall_registerApp(&selfEntity, &syncEvent);
 
-#ifdef USE_RCOSC
-  RCOSC_enableCalibration();
-#endif // USE_RCOSC
-
-#if defined( USE_FPGA )
-  // configure RF Core SMI Data Link
-  IOCPortConfigureSet(IOID_12, IOC_PORT_RFC_GPO0, IOC_STD_OUTPUT);
-  IOCPortConfigureSet(IOID_11, IOC_PORT_RFC_GPI0, IOC_STD_INPUT);
-
-  // configure RF Core SMI Command Link
-  IOCPortConfigureSet(IOID_10, IOC_IOCFG0_PORT_ID_RFC_SMI_CL_OUT, IOC_STD_OUTPUT);
-  IOCPortConfigureSet(IOID_9, IOC_IOCFG0_PORT_ID_RFC_SMI_CL_IN, IOC_STD_INPUT);
-
-  // configure RF Core tracer IO
-  IOCPortConfigureSet(IOID_8, IOC_PORT_RFC_TRC, IOC_STD_OUTPUT);
-#else // !USE_FPGA
-  #if defined( DEBUG_SW_TRACE )
-    // configure RF Core tracer IO
-    IOCPortConfigureSet(IOID_8, IOC_PORT_RFC_TRC, IOC_STD_OUTPUT | IOC_CURRENT_4MA | IOC_SLEW_ENABLE);
-  #endif // DEBUG_SW_TRACE
-#endif // USE_FPGA
-
   // Create an RTOS queue for message from profile to be sent to app.
   appMsgQueue = Util_constructQueue(&appMsg);
 
@@ -573,7 +551,7 @@ static void SimplePeripheral_init(void)
   GGS_AddService(GATT_ALL_SERVICES);           // GAP GATT Service
   GATTServApp_AddService(GATT_ALL_SERVICES);   // GATT Service
   DevInfo_AddService();                        // Device Information Service
-  SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
+  //SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
 
   // Setup the SimpleProfile Characteristic Values
   // For more information, see the sections in the User's Guide:
