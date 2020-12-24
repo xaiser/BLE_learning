@@ -551,7 +551,12 @@ static void SimplePeripheral_init(void)
   GGS_AddService(GATT_ALL_SERVICES);           // GAP GATT Service
   GATTServApp_AddService(GATT_ALL_SERVICES);   // GATT Service
   DevInfo_AddService();                        // Device Information Service
-  //SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
+  SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
+
+  /*
+  uint16_t _sr = 0x1234;
+  DevInfo_SetParameter(DEVINFO_SOFTWARE_REV, sizeof(uint16_t), &_sr);
+  */
 
   // Setup the SimpleProfile Characteristic Values
   // For more information, see the sections in the User's Guide:
@@ -979,6 +984,8 @@ static void SimplePeripheral_processStateChangeEvt(gaprole_States_t newState)
         Display_print0(dispHandle, 1, 0, Util_convertBdAddr2Str(ownAddress));
         Display_print0(dispHandle, 2, 0, "Initialized");
 
+		uint8_t adType = GAP_ADTYPE_ADV_SCAN_IND;
+		GAPRole_SetParameter(GAPROLE_ADV_EVENT_TYPE, sizeof(uint8_t), &adType);
         // Device starts advertising upon initialization of GAP
         uint8_t initialAdvertEnable = TRUE;
         // Set the Peripheral GAPRole Parameters
