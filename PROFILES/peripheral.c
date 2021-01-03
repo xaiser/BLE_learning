@@ -870,8 +870,8 @@ static void gapRole_init(void)
   VOID memset(gapRole_IRK, 0, KEYLEN);
   VOID memset(gapRole_SRK, 0, KEYLEN);
   gapRole_signCounter = 0;
-  //gapRole_AdvEventType = GAP_ADTYPE_ADV_IND;
-  gapRole_AdvEventType = GAP_ADTYPE_ADV_SCAN_IND;
+  gapRole_AdvEventType = GAP_ADTYPE_ADV_IND;
+  //gapRole_AdvEventType = GAP_ADTYPE_ADV_SCAN_IND;
   gapRole_AdvDirectType = ADDRMODE_PUBLIC;
   //gapRole_AdvChanMap = GAP_ADVCHAN_ALL;
   gapRole_AdvChanMap = GAP_ADVCHAN_37;

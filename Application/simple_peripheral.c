@@ -69,6 +69,7 @@
 
 #include "devinfoservice.h"
 #include "simple_gatt_profile.h"
+#include "first_service.h"
 #include "ll_common.h"
 
 #include "peripheral.h"
@@ -553,6 +554,8 @@ static void SimplePeripheral_init(void)
   DevInfo_AddService();                        // Device Information Service
   SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
 
+  First_service_AddService(selfEntity);
+
   /*
   uint16_t _sr = 0x1234;
   DevInfo_SetParameter(DEVINFO_SOFTWARE_REV, sizeof(uint16_t), &_sr);
@@ -984,8 +987,10 @@ static void SimplePeripheral_processStateChangeEvt(gaprole_States_t newState)
         Display_print0(dispHandle, 1, 0, Util_convertBdAddr2Str(ownAddress));
         Display_print0(dispHandle, 2, 0, "Initialized");
 
+		/*
 		uint8_t adType = GAP_ADTYPE_ADV_SCAN_IND;
 		GAPRole_SetParameter(GAPROLE_ADV_EVENT_TYPE, sizeof(uint8_t), &adType);
+		*/
         // Device starts advertising upon initialization of GAP
         uint8_t initialAdvertEnable = TRUE;
         // Set the Peripheral GAPRole Parameters
