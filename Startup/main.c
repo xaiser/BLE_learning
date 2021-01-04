@@ -56,6 +56,9 @@
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/display/Display.h>
 
+#include <ti/drivers/PIN.h>
+#include <ti/drivers/pin/PINCC26XX.h>
+
 #include <icall.h>
 #include "hal_assert.h"
 #include "bcomdef.h"
@@ -123,6 +126,8 @@ int main()
   RegisterAssertCback(AssertHandler);
 
   Board_initGeneral();
+
+  PIN_init(BoardGpioInitTable);
 
   // Enable iCache prefetching
   VIMSConfigure(VIMS_BASE, TRUE, TRUE);

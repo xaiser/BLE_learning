@@ -169,6 +169,12 @@
 // Gets whether the RegisterCause was registered to recieve connection event
 #define CONNECTION_EVENT_REGISTRATION_CAUSE(RegisterCause) (connectionEventRegisterCauseBitMap & RegisterCause )
 
+PIN_Config ledPinTable[] = {
+	  Board_RLED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+	  Board_GLED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+      PIN_TERMINATE
+};
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -270,6 +276,9 @@ static uint8_t advertData[] =
 
 // GAP GATT Attributes
 static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "Simple Peripheral";
+
+static PIN_Handle ledPinHandle;
+static PIN_State ledPinState;
 
 
 /*********************************************************************
@@ -547,6 +556,15 @@ static void SimplePeripheral_init(void)
     GAPBondMgr_SetParameter(GAPBOND_BONDING_ENABLED, sizeof(uint8_t), &bonding);
     GAPBondMgr_SetParameter(GAPBOND_LRU_BOND_REPLACEMENT, sizeof(uint8_t), &replaceBonds);
   }
+
+  // Open LED pins
+  ledPinHandle = PIN_open(&ledPinState, ledPinTable);
+  if(!ledPinHandle) {
+	  Display_print0(dispHandle, 0, 0, "led init fail");
+	  Task_exit();
+  }
+
+  PIN_setOutputValue(ledPinHandle, Board_RLED, 1);
 
   // Initialize GATT attributes
   GGS_AddService(GATT_ALL_SERVICES);           // GAP GATT Service
