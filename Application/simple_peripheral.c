@@ -148,6 +148,7 @@
 #define SBP_PAIRING_STATE_EVT                 0x0004
 #define SBP_PASSCODE_NEEDED_EVT               0x0008
 #define SBP_CONN_EVT                          0x0010
+#define SBP_BUTTON                            0x0020
 
 // Internal Events for RTOS application
 #define SBP_ICALL_EVT                         ICALL_MSG_EVENT_ID // Event_Id_31
@@ -175,6 +176,12 @@ PIN_Config ledPinTable[] = {
       PIN_TERMINATE
 };
 
+PIN_Config buttonPinTable[] = {
+	  Board_BUTTON0 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE,
+	  Board_BUTTON1 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE,
+	  PIN_TERMINATE
+};
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -185,6 +192,13 @@ typedef struct
   appEvtHdr_t hdr;  // event header.
   uint8_t *pData;  // event data
 } sbpEvt_t;
+
+// Struct for message about button state
+typedef struct
+{
+	PIN_Id   pinId;
+	uint8_t  state;
+} button_state_t;
 
 /*********************************************************************
  * GLOBAL VARIABLES
@@ -280,6 +294,17 @@ static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "Simple Peripheral";
 static PIN_Handle ledPinHandle;
 static PIN_State ledPinState;
 
+static PIN_Handle buttonPinHandle;
+static PIN_State buttonPinState;
+
+// Clock objects for debouncing the buttons
+static Clock_Struct button0DebounceClock;
+static Clock_Struct button1DebounceClock;
+
+// State of the buttons
+static uint8_t button0State = 0;
+static uint8_t button1State = 0;
+
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -312,6 +337,11 @@ static uint8_t SimplePeripheral_enqueueMsg(uint8_t event, uint8_t state,
 
 static void SimplePeripheral_connEvtCB(Gap_ConnEventRpt_t *pReport);
 static void SimplePeripheral_processConnEvt(Gap_ConnEventRpt_t *pReport);
+
+static void buttonCallbackFxn(PIN_Handle handle, PIN_Id pinId);
+static void buttonDebounceSwiFxn(UArg buttonId);
+static void sendButtonMessage(button_state_t * button_state);
+static void SimplePeripheral_processButtonEvt(button_state_t * button_state);
 
 
 
@@ -564,7 +594,32 @@ static void SimplePeripheral_init(void)
 	  Task_exit();
   }
 
-  PIN_setOutputValue(ledPinHandle, Board_RLED, 1);
+  buttonPinHandle = PIN_open(&buttonPinState, buttonPinTable);
+  if(!buttonPinHandle) {
+	  Display_print0(dispHandle, 0, 0, "button init fail");
+	  Task_exit();
+  }
+
+  // Setup callback for button pins
+  if (PIN_registerIntCb(buttonPinHandle, &buttonCallbackFxn) != 0) {
+	  Display_print0(dispHandle, 0, 0, "button registe cb fail");
+	  Task_exit();
+  }
+
+  // Create the debounce clock objects for Button 0 and Button 1
+  Clock_Params clockParams;
+  Clock_Params_init(&clockParams);
+
+  clockParams.arg = Board_BUTTON0;
+  Clock_construct(&button0DebounceClock, buttonDebounceSwiFxn,
+		  50 * (1000/Clock_tickPeriod),
+		  &clockParams);
+  clockParams.arg = Board_BUTTON1;
+  Clock_construct(&button1DebounceClock, buttonDebounceSwiFxn,
+		  50 * (1000/Clock_tickPeriod),
+		  &clockParams);
+
+  //PIN_setOutputValue(ledPinHandle, Board_RLED, 1);
 
   // Initialize GATT attributes
   GGS_AddService(GATT_ALL_SERVICES);           // GAP GATT Service
@@ -936,6 +991,13 @@ static void SimplePeripheral_processAppMsg(sbpEvt_t *pMsg)
 	case SBP_CONN_EVT:
       {
         SimplePeripheral_processConnEvt((Gap_ConnEventRpt_t *)(pMsg->pData));
+
+        ICall_free(pMsg->pData);
+        break;
+	  }
+	case SBP_BUTTON:
+      {
+        SimplePeripheral_processButtonEvt((Gap_ConnEventRpt_t *)(pMsg->pData));
 
         ICall_free(pMsg->pData);
         break;
@@ -1399,3 +1461,98 @@ static uint8_t SimplePeripheral_enqueueMsg(uint8_t event, uint8_t state,
 }
 /*********************************************************************
 *********************************************************************/
+static void buttonCallbackFxn(PIN_Handle handle, PIN_Id pinId)
+{
+	// Disable interrupt on that pin for now. Re-enabled after debounce.
+	PIN_setConfig(handle, PIN_BM_IRQ, pinId | PIN_IRQ_DIS);
+
+	switch (pinId)
+	{
+		case Board_BUTTON0:
+			Clock_start(Clock_handle(&button0DebounceClock));
+			break;
+		case Board_BUTTON1:
+			Clock_start(Clock_handle(&button1DebounceClock));
+			break;
+	}
+}
+
+static void buttonDebounceSwiFxn(UArg buttonId)
+{
+	button_state_t buttonMsg = { .pinId = buttonId };
+	uint8_t        sendMsg   = FALSE;
+
+	uint8_t buttonPinVal = PIN_getInputValue(buttonId);
+	if (buttonPinVal)
+	{
+		// Enable negative edge interrupts to wait for press
+		PIN_setConfig(buttonPinHandle, PIN_BM_IRQ, buttonId | PIN_IRQ_NEGEDGE);
+	}
+	else
+	{
+		// Enable positive edge interrupts to wait for relesae
+		PIN_setConfig(buttonPinHandle, PIN_BM_IRQ, buttonId | PIN_IRQ_POSEDGE);
+	}
+
+	switch(buttonId)
+	{
+		case Board_BUTTON0:
+			// If button is now released (buttonPinVal is active low, so release is 1)
+			// and button state was pressed (buttonstate is active high so press is 1)
+			if (buttonPinVal && button0State)
+			{
+				// Button was released
+				buttonMsg.state = button0State = 0;
+				sendMsg = TRUE;
+			}
+			else if (!buttonPinVal && !button0State)
+			{
+				// Button was pressed
+				buttonMsg.state = button0State = 1;
+				sendMsg = TRUE;
+			}
+			break;
+
+		case Board_BUTTON1:
+			// If button is now released (buttonPinVal is active low, so release is 1)
+			// and button state was pressed (buttonstate is active high so press is 1)
+			if (buttonPinVal && button1State)
+			{
+				// Button was released
+				buttonMsg.state = button1State = 0;
+				sendMsg = TRUE;
+			}
+			else if (!buttonPinVal && !button1State)
+			{
+				// Button was pressed
+				buttonMsg.state = button1State = 1;
+				sendMsg = TRUE;
+			}
+			break;
+	}
+
+	if (sendMsg == TRUE)
+	{
+		sendButtonMessage(&buttonMsg);
+	}
+}
+
+void sendButtonMessage(button_state_t * button_state)
+{
+	button_state_t * pData;
+	if ((pData = ICall_malloc(sizeof(button_state_t))))
+	{
+		pData->pinId = button_state->pinId;
+		pData->state = button_state->state;
+
+		SimplePeripheral_enqueueMsg(SBP_BUTTON, 0, (uint8_t*)pData);
+	}
+}
+
+void SimplePeripheral_processButtonEvt(button_state_t * button_state)
+{
+	if ( Board_BUTTON1 == button_state->pinId )
+	{
+		PIN_setOutputValue(ledPinHandle, Board_RLED, button_state->state);
+	}
+}
