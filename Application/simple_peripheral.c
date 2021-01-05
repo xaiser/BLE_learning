@@ -1551,8 +1551,10 @@ void sendButtonMessage(button_state_t * button_state)
 
 void SimplePeripheral_processButtonEvt(button_state_t * button_state)
 {
+	uint8_t v = 1;
 	if ( Board_BUTTON1 == button_state->pinId )
 	{
 		PIN_setOutputValue(ledPinHandle, Board_RLED, button_state->state);
+		First_service_SetParameter(FIRST_SERVICE_TMP_ID, sizeof(uint8_t), &v);
 	}
 }

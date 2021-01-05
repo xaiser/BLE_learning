@@ -90,13 +90,13 @@ static first_serviceCBs_t *pAppCBs = NULL;
 static CONST gattAttrType_t first_serviceDecl = { ATT_BT_UUID_SIZE, first_serviceUUID };
 
 // Characteristic "Tmp" Properties (for declaration)
-static uint8_t first_service_TmpProps = GATT_PROP_READ | GATT_PROP_NOTIFY;
-//static uint8_t first_service_TmpProps = GATT_PROP_NOTIFY;
+//static uint8_t first_service_TmpProps = GATT_PROP_READ | GATT_PROP_NOTIFY;
+static uint8_t first_service_TmpProps = GATT_PROP_NOTIFY;
 
 // Characteristic "Tmp" Value variable
 static uint8_t first_service_TmpVal[FIRST_SERVICE_TMP_LEN] = {0};
 
-static gattCharCfg_t * tmpCharTmpCfg;;
+static gattCharCfg_t * tmpCharTmpCfg;
 
 /*********************************************************************
 * Profile Attributes - Table
@@ -219,25 +219,29 @@ bStatus_t First_service_RegisterAppCBs( first_serviceCBs_t *appCallbacks )
  */
 bStatus_t First_service_SetParameter( uint8_t param, uint16_t len, void *value )
 {
-  bStatus_t ret = SUCCESS;
-  switch ( param )
-  {
-    case FIRST_SERVICE_TMP_ID:
-      if ( len == FIRST_SERVICE_TMP_LEN )
-      {
-        memcpy(first_service_TmpVal, value, len);
-      }
-      else
-      {
-        ret = bleInvalidRange;
-      }
-      break;
+	bStatus_t ret = SUCCESS;
+	switch ( param )
+	{
+		case FIRST_SERVICE_TMP_ID:
+			if ( len == FIRST_SERVICE_TMP_LEN )
+			{
+				memcpy(first_service_TmpVal, value, len);
 
-    default:
-      ret = INVALIDPARAMETER;
-      break;
-  }
-  return ret;
+				GATTServApp_ProcessCharCfg( tmpCharTmpCfg, (uint8_t*)&first_service_TmpVal, FALSE,
+						first_serviceAttrTbl, GATT_NUM_ATTRS( first_serviceAttrTbl ),
+						INVALID_TASK_ID, first_service_ReadAttrCB );
+			}
+			else
+			{
+				ret = bleInvalidRange;
+			}
+			break;
+
+		default:
+			ret = INVALIDPARAMETER;
+			break;
+	}
+	return ret;
 }
 
 
@@ -282,30 +286,30 @@ static bStatus_t first_service_ReadAttrCB( uint16_t connHandle, gattAttribute_t 
                                        uint8_t *pValue, uint16_t *pLen, uint16_t offset,
                                        uint16_t maxLen, uint8_t method )
 {
-  bStatus_t status = SUCCESS;
+	bStatus_t status = SUCCESS;
 
-  // See if request is regarding the Tmp Characteristic Value
-if ( ! memcmp(pAttr->type.uuid, first_service_TmpUUID, pAttr->type.len) )
-  {
-    if ( offset > FIRST_SERVICE_TMP_LEN )  // Prevent malicious ATT ReadBlob offsets.
-    {
-      status = ATT_ERR_INVALID_OFFSET;
-    }
-    else
-    {
-      *pLen = MIN(maxLen, FIRST_SERVICE_TMP_LEN - offset);  // Transmit as much as possible
-      memcpy(pValue, pAttr->pValue + offset, *pLen);
-    }
-  }
-  else
-  {
-    // If we get here, that means you've forgotten to add an if clause for a
-    // characteristic value attribute in the attribute table that has READ permissions.
-    *pLen = 0;
-    status = ATT_ERR_ATTR_NOT_FOUND;
-  }
+	// See if request is regarding the Tmp Characteristic Value
+	if ( ! memcmp(pAttr->type.uuid, first_service_TmpUUID, pAttr->type.len) )
+	{
+		if ( offset > FIRST_SERVICE_TMP_LEN )  // Prevent malicious ATT ReadBlob offsets.
+		{
+			status = ATT_ERR_INVALID_OFFSET;
+		}
+		else
+		{
+			*pLen = MIN(maxLen, FIRST_SERVICE_TMP_LEN - offset);  // Transmit as much as possible
+			memcpy(pValue, pAttr->pValue + offset, *pLen);
+		}
+	}
+	else
+	{
+		// If we get here, that means you've forgotten to add an if clause for a
+		// characteristic value attribute in the attribute table that has READ permissions.
+		*pLen = 0;
+		status = ATT_ERR_ATTR_NOT_FOUND;
+	}
 
-  return status;
+	return status;
 }
 
 
