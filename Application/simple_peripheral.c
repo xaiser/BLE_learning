@@ -567,13 +567,16 @@ static void SimplePeripheral_init(void)
     uint8_t pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
     // Use authenticated pairing: require passcode.
     uint8_t mitm = TRUE;
+    //uint8_t mitm = FALSE;
     // This device only has display capabilities. Therefore, it will display the
     // passcode during pairing. However, since the default passcode is being
     // used, there is no need to display anything.
     uint8_t ioCap = GAPBOND_IO_CAP_DISPLAY_ONLY;
+    //uint8_t ioCap = GAPBOND_IO_CAP_NO_INPUT_NO_OUTPUT;
     // Request bonding (storing long-term keys for re-encryption upon subsequent
     // connections without repairing)
-    uint8_t bonding = TRUE;
+    //uint8_t bonding = TRUE;
+    uint8_t bonding = FALSE;
     // Whether to replace the least recently used entry when bond list is full,
     // and a new device is bonded.
     // Alternative is pairing succeeds but bonding fails, unless application has
@@ -1384,12 +1387,13 @@ static void SimplePeripheral_processPasscode(uint8_t uiOutputs)
 {
   // This app uses a default passcode. A real-life scenario would handle all
   // pairing scenarios and likely generate this randomly.
-  uint32_t passcode = B_APP_DEFAULT_PASSCODE;
+  //uint32_t passcode = B_APP_DEFAULT_PASSCODE;
+  uint32_t passcode = 135790;
 
   // Display passcode to user
   if (uiOutputs != 0)
   {
-    Display_print1(dispHandle, 4, 0, "Passcode: %d", passcode);
+	  Display_print1(dispHandle, 4, 0, "Passcode: %d", passcode);
   }
 
   uint16_t connectionHandle;
